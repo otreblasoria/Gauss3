@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gamificación del Método de Gauss</title>
+    <!-- Carga de Tailwind CSS para un diseño moderno y responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Configuración de la fuente Inter para todo el documento */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Fondo suave */
+        }
+        .matrix-cell {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            transition: all 0.2s;
+        }
+        .augmented-line {
+            border-left: 3px solid #6366f1; /* Línea de separación azul/púrpura */
+            padding-left: 8px;
+            margin-left: 8px;
+        }
+        .operation-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        /* Estilo para los botones principales */
+        .btn-primary {
+            transition: all 0.15s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3), 0 2px 4px -2px rgba(99, 102, 241, 0.1);
+        }
+        /* Animación para celdas modificadas */
+        .modified-cell {
+            animation: pulse-bg 0.5s ease-out;
+        }
+        @keyframes pulse-bg {
+            0% { background-color: #fef3c7; } /* Amarillo claro */
+            100% { background-color: #fff; }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen">
+
+    <div id="app" class="max-w-6xl mx-auto">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-6 text-center">
+            🚀 Gamificación de Gauss
+        </h1>
+        <p class="text-lg text-gray-600 mb-8 text-center">
+            Resuelve el sistema de ecuaciones transformando la matriz aumentada a su forma escalonada con el menor número de movimientos.
+        </p>
+
+        <!-- Contadores y Controles de Nivel -->
+        <div class="flex flex-wrap gap-4 mb-8 justify-center items-center">
+            <div id="scoreDisplay" class="bg-indigo-100 text-indigo-800 font-bold px-4 py-2 rounded-full text-lg shadow-md">
+                Movimientos: 0
+            </div>
+            <div id="levelDisplay" class="bg-gray-700 text-white font-bold px-4 py-2 rounded-full text-lg shadow-md">
+                Nivel 1 (2x2)
+            </div>
+            <button onclick="app.resetGame()" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-full transition duration-150 ease-in-out shadow-md">
+                Reiniciar Nivel
+            </button>
+        </div>
+
+        <!-- Área de la Matriz y Mensajes -->
+        <div class="flex flex-col lg:flex-row gap-8">
+            <!-- Columna de la Matriz -->
+            <div class="lg:w-1/2 flex flex-col items-center p-6 bg-white rounded-2xl shadow-xl">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Matriz Aumentada Actual</h2>
+                <div id="matrixDisplay" class="p-4 bg-gray-50 rounded-lg shadow-inner overflow-x-auto">
+                    <!-- La matriz se renderizará aquí -->
+                </div>
+                <div id="feedbackMessage" class="mt-6 p-3 text-center text-white font-medium rounded-lg transition-opacity duration-300 min-h-10 opacity-0">
+                    <!-- Mensajes de feedback (éxito/error) -->
+                </div>
+                <div id="goalMessage" class="mt-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-lg">
+                    <p class="font-bold">Objetivo del Método de Gauss:</p>
+                    <p>Hacer que los coeficientes bajo la diagonal principal sean cero (forma escalonada).</p>
+                </div>
+                <button id="solveButton" onclick="app.checkGoalAndSolve()" class="mt-8 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl transition duration-150 ease-in-out shadow-lg opacity-50 cursor-not-allowed" disabled>
+                    ¡Matriz Escalona! (Resolver)
+                </button>
+            </div>
+
+            <!-- Columna de Operaciones -->
+            <div class="lg:w-1/2 space-y-6">
+                <div id="solutionDisplay" class="operation-card p-6 bg-green-50 hidden">
+                    <h3 class="text-xl font-bold text-green-700 mb-3">✅ ¡Sistema Resuelto!</h3>
+                    <div id="solutionText" class="text-green-800 font-mono text-lg"></div>
+                    <button onclick="app.nextLevel()" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-xl transition duration-150 ease-in-out">
+                        Siguiente Nivel
+                    </button>
+                </div>
+
+                <!-- Intercambiar Filas -->
+                <div class="operation-card">
+                    <h3 class="text-xl font-semibold text-indigo-700 mb-3">1. Intercambiar Filas ($R_i \leftrightarrow R_j$)</h3>
+                    <div class="flex space-x-2 items-center">
+                        <label for="swapR1" class="font-medium">Fila i:</label>
+                        <input type="number" id="swapR1" min="1" class="w-16 p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                        <span class="font-bold text-xl">↔</span>
+                        <label for="swapR2" class="font-medium">Fila j:</label>
+                        <input type="number" id="swapR2" min="1" class="w-16 p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                        <button onclick="app.swapRows()" class="btn-primary bg-indigo-500 text-white font-semibold py-2 px-4 rounded-xl ml-4">Aplicar</button>
+                    </div>
+                </div>
+
+                <!-- Multiplicar Fila por Escalar -->
+                <div class="operation-card">
+                    <h3 class="text-xl font-semibold text-indigo-700 mb-3">2. Multiplicar Fila ($k R_i \to R_i$)</h3>
+                    <div class="flex space-x-2 items-center">
+                        <label for="multR" class="font-medium">Fila i:</label>
+                        <input type="number" id="multR" min="1" class="w-16 p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                        <span class="font-bold text-xl">×</span>
+                        <label for="multK" class="font-medium">Escalar k:</label>
+                        <input type="number" id="multK" step="0.01" value="-0.5" class="w-24 p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                        <button onclick="app.multiplyRow()" class="btn-primary bg-indigo-500 text-white font-semibold py-2 px-4 rounded-xl ml-4">Aplicar</button>
+                    </div>
+                </div>
+
+                <!-- Combinar Filas -->
+                <div class="operation-card">
+                    <h3 class="text-xl font-semibold text-indigo-700 mb-3">3. Combinar Filas ($R_i + k R_j \to R_i$)</h3>
+                    <p class="text-sm text-gray-500 mb-2">Suma un múltiplo de una fila fuente ($R_j$) a una fila objetivo ($R_i$).</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex space-x-2 items-center">
+                            <label for="combTargetR" class="font-medium">Fila objetivo $R_i$:</label>
+                            <input type="number" id="combTargetR" min="1" class="w-16 p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="flex space-x-2 items-center">
+                            <label for="combSourceR" class="font-medium">Fila fuente $R_j$:</label>
+                            <input type="number" id="combSourceR" min="1" class="w-16 p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="col-span-2 flex space-x-2 items-center">
+                            <label for="combK" class="font-medium">Escalar k:</label>
+                            <input type="number" id="combK" step="0.01" value="-2" class="w-24 p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                            <button onclick="app.combineRows()" class="btn-primary bg-indigo-500 text-white font-semibold py-2 px-4 rounded-xl ml-4 w-full">Aplicar Combinación</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Función auxiliar para redondear a un número fijo de decimales
+        const round = (num, decimals = 4) => {
+            if (num === 0) return 0;
+            const factor = Math.pow(10, decimals);
+            return Math.round(num * factor) / factor;
+        };
+
+        const App = {
+            matrix: [],
+            numRows: 0,
+            numCols: 0,
+            moves: 0,
+            currentLevel: 1,
+
+            // Definiciones de los niveles (sistemas de ecuaciones)
+            levels: [
+                {
+                    level: 1,
+                    size: '2x2',
+                    matrix: [
+                        [2, 1, 5],
+                        [1, -3, -8]
+                    ], // 2x + y = 5; x - 3y = -8. Solución: (1, 3)
+                    solution: { x: 1, y: 3 }
+                },
+                {
+                    level: 2,
+                    size: '3x3',
+                    matrix: [
+                        [1, 1, 1, 6],
+                        [2, -1, 1, 3],
+                        [3, 0, -1, 0]
+                    ], // x+y+z=6; 2x-y+z=3; 3x-z=0. Solución: (1, 2, 3)
+                    solution: { x: 1, y: 2, z: 3 }
+                },
+                {
+                    level: 3,
+                    size: '3x3',
+                    matrix: [
+                        [1, 2, -1, 2],
+                        [2, -1, 3, 9],
+                        [3, 3, -2, 4]
+                    ], // x+2y-z=2; 2x-y+3z=9; 3x+3y-2z=4. Solución: (1, 2, 3)
+                    solution: { x: 1, y: 2, z: 3 }
+                }
+            ],
+
+            init() {
+                this.loadLevel(this.currentLevel);
+            },
+
+            loadLevel(levelIndex) {
+                const levelData = this.levels[levelIndex - 1];
+                if (!levelData) {
+                    this.showFeedback('¡Enhorabuena! Has completado todos los niveles.', 'bg-purple-600', 0);
+                    document.getElementById('levelDisplay').textContent = '¡Juego Terminado!';
+                    this.renderMatrix([]);
+                    document.getElementById('solveButton').classList.add('hidden');
+                    return;
+                }
+
+                this.matrix = levelData.matrix.map(row => [...row]); // Clonar la matriz
+                this.numRows = this.matrix.length;
+                this.numCols = this.matrix[0].length;
+                this.moves = 0;
+
+                // Actualizar el UI
+                document.getElementById('levelDisplay').textContent = `Nivel ${levelIndex} (${levelData.size})`;
+                document.getElementById('swapR1').max = this.numRows;
+                document.getElementById('swapR2').max = this.numRows;
+                document.getElementById('multR').max = this.numRows;
+                document.getElementById('combTargetR').max = this.numRows;
+                document.getElementById('combSourceR').max = this.numRows;
+
+                this.updateUI();
+                document.getElementById('solutionDisplay').classList.add('hidden');
+                document.getElementById('solveButton').classList.remove('hidden', 'opacity-50', 'cursor-not-allowed');
+                document.getElementById('solveButton').disabled = true;
+                this.checkGaussCondition();
+                this.showFeedback(`Nivel ${levelIndex} cargado. ¡A por la forma escalonada!`, 'bg-indigo-500', 3000);
+            },
+
+            resetGame() {
+                this.loadLevel(this.currentLevel);
+                this.showFeedback('Nivel Reiniciado. ¡Movimientos a 0!', 'bg-red-500', 2000);
+            },
+
+            updateUI() {
+                this.renderMatrix(this.matrix);
+                document.getElementById('scoreDisplay').textContent = `Movimientos: ${this.moves}`;
+            },
+
+            renderMatrix(matrix, modifiedRowIndex = -1) {
+                const display = document.getElementById('matrixDisplay');
+                display.innerHTML = ''; // Limpiar
+                
+                if (matrix.length === 0) {
+                    display.innerHTML = '<p class="text-gray-500">No hay matriz para mostrar.</p>';
+                    return;
+                }
+
+                // Obtener el número de columnas de coeficientes (columnas totales - 1)
+                const coefCols = matrix[0].length - 1;
+
+                const table = document.createElement('table');
+                table.className = 'border-collapse';
+
+                matrix.forEach((row, rowIndex) => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-none';
+
+                    row.forEach((cellValue, colIndex) => {
+                        const td = document.createElement('td');
+                        td.className = 'p-1';
+                        
+                        const div = document.createElement('div');
+                        div.className = 'matrix-cell';
+                        div.textContent = round(cellValue);
+
+                        // Aplicar clase para la línea de aumento (barra vertical)
+                        if (colIndex === coefCols) {
+                            td.classList.add('augmented-line');
+                        }
+                        
+                        // Aplicar animación a la fila modificada
+                        if (rowIndex === modifiedRowIndex) {
+                            div.classList.add('modified-cell');
+                        }
+
+                        td.appendChild(div);
+                        tr.appendChild(td);
+                    });
+                    table.appendChild(tr);
+                });
+                
+                // Añadir corchetes/paréntesis estéticos
+                const matrixContainer = document.createElement('div');
+                matrixContainer.className = 'flex items-center justify-center';
+                matrixContainer.innerHTML = `<span class="text-4xl font-light text-gray-400 mr-2"> [ </span>`;
+                matrixContainer.appendChild(table);
+                matrixContainer.innerHTML += `<span class="text-4xl font-light text-gray-400 ml-2"> ] </span>`;
+
+                display.appendChild(matrixContainer);
+            },
+
+            showFeedback(message, bgColor, duration = 3000) {
+                const feedback = document.getElementById('feedbackMessage');
+                feedback.textContent = message;
+                feedback.className = `mt-6 p-3 text-center text-white font-medium rounded-lg transition-opacity duration-300 min-h-10 ${bgColor} opacity-100`;
+
+                clearTimeout(this.feedbackTimer);
+                if (duration > 0) {
+                    this.feedbackTimer = setTimeout(() => {
+                        feedback.classList.remove('opacity-100');
+                        feedback.classList.add('opacity-0');
+                    }, duration);
+                }
+            },
+
+            // --- OPERACIONES ELEMENTALES DE FILA ---
+
+            swapRows() {
+                const r1 = parseInt(document.getElementById('swapR1').value) - 1;
+                const r2 = parseInt(document.getElementById('swapR2').value) - 1;
+
+                if (isNaN(r1) || isNaN(r2) || r1 < 0 || r2 < 0 || r1 >= this.numRows || r2 >= this.numRows || r1 === r2) {
+                    return this.showFeedback(`Error: Filas no válidas (1 a ${this.numRows}).`, 'bg-red-500');
+                }
+
+                const temp = this.matrix[r1];
+                this.matrix[r1] = this.matrix[r2];
+                this.matrix[r2] = temp;
+                this.moves++;
+                this.checkGaussCondition();
+                this.updateUI();
+                this.showFeedback(`✅ Intercambio: $R_{${r1 + 1}} \leftrightarrow R_{${r2 + 1}}$`, 'bg-blue-500');
+            },
+
+            multiplyRow() {
+                const r = parseInt(document.getElementById('multR').value) - 1;
+                const k = parseFloat(document.getElementById('multK').value);
+
+                if (isNaN(r) || r < 0 || r >= this.numRows || isNaN(k) || k === 0) {
+                    return this.showFeedback(`Error: Fila no válida o escalar $k=0$ (no permitido).`, 'bg-red-500');
+                }
+
+                this.matrix[r] = this.matrix[r].map(val => round(val * k));
+                this.moves++;
+                this.checkGaussCondition();
+                this.renderMatrix(this.matrix, r); // Resalta la fila modificada
+                this.showFeedback(`✅ Multiplicación: $${round(k)} R_{${r + 1}} \to R_{${r + 1}}$`, 'bg-blue-500');
+            },
+
+            combineRows() {
+                const targetR = parseInt(document.getElementById('combTargetR').value) - 1; // Ri
+                const sourceR = parseInt(document.getElementById('combSourceR').value) - 1; // Rj
+                const k = parseFloat(document.getElementById('combK').value);
+
+                if (isNaN(targetR) || isNaN(sourceR) || targetR < 0 || sourceR < 0 || targetR >= this.numRows || sourceR >= this.numRows || isNaN(k) || targetR === sourceR) {
+                    return this.showFeedback(`Error: Filas o escalar no válidos. $R_i \neq R_j$.`, 'bg-red-500');
+                }
+
+                for (let j = 0; j < this.numCols; j++) {
+                    this.matrix[targetR][j] = round(this.matrix[targetR][j] + k * this.matrix[sourceR][j]);
+                }
+                this.moves++;
+                this.checkGaussCondition();
+                this.renderMatrix(this.matrix, targetR); // Resalta la fila modificada
+                this.showFeedback(`✅ Combinación: $R_{${targetR + 1}} + ${round(k)} R_{${sourceR + 1}} \to R_{${targetR + 1}}$`, 'bg-blue-500');
+            },
+
+            // --- Lógica del Juego y Solución ---
+
+            isRowEchelonForm() {
+                for (let i = 1; i < this.numRows; i++) {
+                    for (let j = 0; j < i; j++) {
+                        // Verifica los elementos por debajo de la diagonal principal
+                        if (Math.abs(this.matrix[i][j]) > 0.0001) { // Usa una pequeña tolerancia
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            },
+
+            checkGaussCondition() {
+                const isEchelon = this.isRowEchelonForm();
+                const solveButton = document.getElementById('solveButton');
+
+                if (isEchelon) {
+                    solveButton.disabled = false;
+                    solveButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                    solveButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                    document.getElementById('goalMessage').innerHTML = '<p class="font-bold text-green-700">¡OBJETIVO CUMPLIDO!</p><p>La matriz está escalonada. ¡Ahora a resolver por sustitución inversa!</p>';
+                } else {
+                    solveButton.disabled = true;
+                    solveButton.classList.add('opacity-50', 'cursor-not-allowed');
+                    solveButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    document.getElementById('goalMessage').innerHTML = '<p class="font-bold">Objetivo del Método de Gauss:</p><p>Hacer que los coeficientes bajo la diagonal principal sean cero (forma escalonada).</p>';
+                }
+            },
+
+            solveSystem() {
+                const n = this.numRows;
+                const solution = new Array(n);
+                const varNames = ['x', 'y', 'z', 'w', 'v']; // Soporte hasta 5 variables
+
+                // Sustitución inversa
+                for (let i = n - 1; i >= 0; i--) {
+                    let sum = 0;
+                    for (let j = i + 1; j < n; j++) {
+                        sum += this.matrix[i][j] * solution[j];
+                    }
+
+                    // Verifica el pivote (diagonal principal)
+                    const pivot = this.matrix[i][i];
+                    if (Math.abs(pivot) < 0.0001) {
+                         // Esto cubre sistemas indeterminados o inconsistentes (aunque los niveles están diseñados para ser compatibles determinados)
+                        return "Error: El sistema puede ser incompatible o indeterminado (pivote cero).";
+                    }
+
+                    // (b_i - sum) / a_ii
+                    solution[i] = round((this.matrix[i][n] - sum) / pivot);
+                }
+
+                // Formato de la solución
+                let solutionString = '';
+                let isCorrect = true;
+                const correctSolution = this.levels[this.currentLevel - 1].solution;
+                
+                for (let i = 0; i < n; i++) {
+                    const varName = varNames[i];
+                    const val = solution[i];
+                    solutionString += `${varName} = ${val}`;
+                    if (i < n - 1) solutionString += '; ';
+
+                    // Comparación con la solución conocida del nivel (para gamificación)
+                    if (Math.abs(val - correctSolution[varName]) > 0.0001) {
+                        isCorrect = false;
+                    }
+                }
+
+                if (isCorrect) {
+                    solutionString = `¡Felicidades! Solución correcta: ${solutionString}. \n\n¡Lo conseguiste en ${this.moves} movimientos!`;
+                } else {
+                    // Esto ocurre si el escalonamiento fue correcto pero los coeficientes son diferentes
+                    solutionString = `Solución calculada: ${solutionString}. (La solución no coincide con el objetivo, revisa tus multiplicaciones).`;
+                }
+
+                return solutionString;
+            },
+
+            checkGoalAndSolve() {
+                if (this.isRowEchelonForm()) {
+                    const resultText = this.solveSystem();
+                    document.getElementById('solutionText').textContent = resultText;
+                    document.getElementById('solutionDisplay').classList.remove('hidden');
+                    document.getElementById('solveButton').classList.add('hidden');
+                    this.showFeedback('¡Sistema Resuelto!', 'bg-green-600', 0);
+                } else {
+                    this.showFeedback('La matriz aún no está en forma escalonada (triangular).', 'bg-red-500');
+                }
+            },
+
+            nextLevel() {
+                this.currentLevel++;
+                this.loadLevel(this.currentLevel);
+            }
+        };
+
+        // Hacemos el objeto App accesible globalmente con nombre 'app' para los handlers de onclick en HTML.
+        const app = App;
+
+        // Inicializar la aplicación al cargar la ventana
+        window.onload = function() {
+            App.init();
+            // Asegurarse de que el botón de resolver esté habilitado/deshabilitado correctamente al inicio
+            App.checkGaussCondition();
+        };
+    </script>
+</body>
+</html>
